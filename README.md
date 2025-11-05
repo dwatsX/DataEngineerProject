@@ -33,8 +33,11 @@ Components:
        - Cleanses and aggregates daily confirmed case totals for the USA
        - Writes the results as Parquet files to GCS: gs://covid-data-pipeline-101/processed/covid-cases/usa_daily/
 
-4. Data Storage (BigQuery)
-   - The processed Parquet data is loaded into a BigQuery table (covid_data_usa.daily_confirmed)
+4. Data Storage (BigQuery - Automated load)
+   - After transformation, the Composer DAG automatically imports the Parquet output into BigQuery using GCSToBigQueryOperator
+   - Table created: covid_data_usa.daily_confirmed
+   - Write mode: WRITE_TRUNCATE (replaces the table on each run for a full refresh)
+   - Ensures BigQuery always reflects the lastest processed data with no manual intervention
   
 5. Visualization (Power BI)
    - Power BI Desktop connects to BigQuery using the official connector
