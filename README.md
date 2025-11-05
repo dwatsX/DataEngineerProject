@@ -17,7 +17,7 @@ Components:
 
 1. Data Ingestion
    - Raw data (RAW_us_confirmed_cases.csv) is stored in a Google Cloud Storage bucket (gs://covid-data-pipeline-101/raw)
-   - Composer (Airflow) orchestrates ingestion and transformation via a scheduled DAG
+   - Composer (Airflow) orchestrates ingestion, transformation and export to BigQuery via a scheduled DAG
   
 2. Orchestration
    - A daily-scheduled Airflow DAG (covid_data_refresh_dag.py) runs the Dataproc job automatically
