@@ -2,6 +2,9 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobOperator
 from airflow.providers.google.cloud.transfers.gcs_to_bigquery import GCSToBigQueryOperator
+from airflow.operators.python import PythonOperator
+from google.cloud import storage
+import requests
 
 # DAG Configuration
 
@@ -11,6 +14,8 @@ CLUSTER_NAME = "cluster-2c27"
 
 # Paths
 PYSPARK_URI = "gs://covid-data-pipeline-101/dataproc/jobs/transform_covid_cases.py"
+RAW_BUCKET = "covid-data-pipeline-101"
+RAW_FILE_PATH = "raw/RAW_us_confirmed_cases.csv"
 INPUT_PATH = "gs://covid-data-pipeline-101/raw/RAW_us_confirmed_cases.csv"
 OUTPUT_PATH = "gs://covid-data-pipeline-101/processed/covid_cases/"
 BQ_DATASET = "covid_data_usa"
@@ -28,6 +33,23 @@ default_args = {
     "retry_delay": timedelta(minutes=5),
 }
 
+# Define Helper Function for Data Fetch
+
+def fetch_data_to_gcs(**context):
+    url = (
+        "https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/"
+        "csse_covid_19_data/csse_covid_19_time_series/"
+        "time_series_covid19_confirmed_US.csv"
+    )
+
+    response = requests.get(url)
+    response.raise_for_status()
+
+    client = storage.Client()
+    bucket = client.bucket(RAW_BUCKET)
+    blob = bucket.blob(RAW_FILE_PATH)
+    blob.upload_from_string(response.content, content_type="text/csv")
+
 # Define the DAG
 
 with DAG(
@@ -40,7 +62,14 @@ with DAG(
     tags=["dataproc", "covid", "batch", "etl"],
 ) as dag:
 
-    # Submit the PySpark job to Dataproc
+    # Fetch Raw Data
+    fetch_raw_data = PythonOperator(
+        task_id="fetch_raw_data",
+        python_callable=fetch_data_to_gcs,
+        provide_context=True,
+    )    
+
+    # Submit the PySpark job to Dataproc, for transformation
 
     dataproc_job = {
         "placement": {"cluster_name": CLUSTER_NAME},
@@ -72,4 +101,4 @@ with DAG(
     )    
 
     # Run workflow
-    run_dataproc >> load_country_to_bq
+    fetch_raw_data >> run_dataproc >> load_country_to_bq
